@@ -1,0 +1,55 @@
+name: 构建 Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    name: 构建 APK
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置 JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: 授予 gradlew 执行权限
+      run: chmod +x android-app/gradlew
+
+    - name: 构建 Debug APK
+      working-directory: ./android-app
+      run: ./gradlew assembleDebug --stacktrace
+
+    - name: 构建 Release APK
+      working-directory: ./android-app
+      run: ./gradlew assembleRelease --stacktrace
+
+    - name: 上传 Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: AutoGLM-Helper-Debug
+        path: android-app/app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+
+    - name: 上传 Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: AutoGLM-Helper-Release
+        path: android-app/app/build/outputs/apk/release/app-release.apk
+        retention-days: 30
+
+    - name: 构建信息
+      run: |
+        echo "✅ APK 构建完成！"
+        echo "📦 Debug APK 大小: $(du -h android-app/app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
+        echo "📦 Release APK 大小: $(du -h android-app/app/build/outputs/apk/release/app-release.apk | cut -f1)"
