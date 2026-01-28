@@ -30,26 +30,26 @@ jobs:
       working-directory: ./android-app
       run: ./gradlew assembleDebug --stacktrace
 
-    - name: 构建 Release APK
-      working-directory: ./android-app
-      run: ./gradlew assembleRelease --stacktrace
-
     - name: 上传 Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: AutoGLM-Helper-Debug
+        name: AutoGLM-Helper-APK
         path: android-app/app/build/outputs/apk/debug/app-debug.apk
         retention-days: 30
 
-    - name: 上传 Release APK
+    - name: 重命名 APK（方便识别）
+      run: |
+        cp android-app/app/build/outputs/apk/debug/app-debug.apk AutoGLM-Helper.apk
+
+    - name: 上传重命名后的 APK
       uses: actions/upload-artifact@v4
       with:
-        name: AutoGLM-Helper-Release
-        path: android-app/app/build/outputs/apk/release/app-release.apk
+        name: AutoGLM-Helper
+        path: AutoGLM-Helper.apk
         retention-days: 30
 
     - name: 构建信息
       run: |
         echo "✅ APK 构建完成！"
-        echo "📦 Debug APK 大小: $(du -h android-app/app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
-        echo "📦 Release APK 大小: $(du -h android-app/app/build/outputs/apk/release/app-release.apk | cut -f1)"
+        echo "📦 APK 大小: $(du -h android-app/app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
+        echo "📦 可直接下载 Artifacts 中的 AutoGLM-Helper.apk 安装使用"
