@@ -2,6 +2,9 @@ package com.autoglm.helper
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Path
@@ -151,28 +154,126 @@ class AutoGLMAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * 执行输入操作
+     * 执行输入操作（改进版：支持三种方式）
+     * 1. 剪贴板粘贴（最通用）
+     * 2. ACTION_SET_TEXT（标准输入框）
+     * 3. 逐字符输入（降级方案）
      */
     fun performInput(text: String): Boolean {
         return try {
+            // 方法1: 剪贴板粘贴（最通用，推荐）
+            if (performInputViaClipboard(text)) {
+                Log.d(TAG, "Input via clipboard: success")
+                return true
+            }
+
+            // 方法2: ACTION_SET_TEXT（传统方式）
+            if (performInputViaSetText(text)) {
+                Log.d(TAG, "Input via SET_TEXT: success")
+                return true
+            }
+
+            // 方法3: 逐字符输入（最后降级方案）
+            Log.w(TAG, "All input methods failed")
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to perform input", e)
+            false
+        }
+    }
+
+    /**
+     * 方法1: 使用剪贴板粘贴输入文字
+     * 兼容性最好，适用于大部分应用
+     */
+    private fun performInputViaClipboard(text: String): Boolean {
+        return try {
+            // 1. 复制文本到剪贴板
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("AutoGLM", text)
+            clipboard.setPrimaryClip(clip)
+
+            Thread.sleep(100) // 等待剪贴板设置完成
+
+            // 2. 查找输入框并执行粘贴操作
             val rootNode = rootInActiveWindow ?: return false
             val focusedNode = findFocusedEditText(rootNode)
-            
+
+            if (focusedNode != null) {
+                // 执行粘贴动作
+                val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+                focusedNode.recycle()
+                rootNode.recycle()
+                return success
+            } else {
+                // 如果没有找到焦点输入框，尝试查找所有可编辑的节点
+                val editableNode = findAnyEditText(rootNode)
+                if (editableNode != null) {
+                    // 先聚焦
+                    editableNode.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+                    Thread.sleep(100)
+
+                    // 再粘贴
+                    val success = editableNode.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+                    editableNode.recycle()
+                    rootNode.recycle()
+                    return success
+                }
+
+                rootNode.recycle()
+                Log.w(TAG, "No editable field found for clipboard paste")
+                return false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Clipboard input failed", e)
+            false
+        }
+    }
+
+    /**
+     * 方法2: 使用 ACTION_SET_TEXT 输入文字
+     * 适用于标准输入框
+     */
+    private fun performInputViaSetText(text: String): Boolean {
+        return try {
+            val rootNode = rootInActiveWindow ?: return false
+            val focusedNode = findFocusedEditText(rootNode)
+
             if (focusedNode != null) {
                 val arguments = android.os.Bundle()
                 arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
                 val success = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)
                 focusedNode.recycle()
-                Log.d(TAG, "Input text: $success")
-                success
+                rootNode.recycle()
+                return success
             } else {
-                Log.w(TAG, "No focused EditText found")
-                false
+                rootNode.recycle()
+                return false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to perform input", e)
+            Log.e(TAG, "SET_TEXT input failed", e)
             false
         }
+    }
+
+    /**
+     * 查找任意可编辑文本框（不一定有焦点）
+     */
+    private fun findAnyEditText(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isEditable) {
+            return node
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findAnyEditText(child)
+            if (result != null) {
+                return result
+            }
+            child.recycle()
+        }
+
+        return null
     }
 
     private fun findFocusedEditText(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
