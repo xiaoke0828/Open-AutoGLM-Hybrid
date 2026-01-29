@@ -27,3 +27,14 @@ Thumbs.db
 # Local config
 *.local
 .env.local
+.env
+.envy
+
+# Runtime files
+*.pid
+task_history.json
+.auth_token
+
+# macOS
+.DS_Store
+**/.DS_Store
