@@ -21,7 +21,7 @@ from io import BytesIO
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'mac-server'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'Open-AutoGLM'))
 
-from config import TASK_HISTORY_FILE, MAX_TASK_HISTORY
+from config import TASK_HISTORY_FILE, MAX_TASK_HISTORY, PHONE_HELPER_URL
 from phone_controller_remote import PhoneControllerRemote
 from phone_adapter import PhoneControllerAdapter
 
@@ -145,7 +145,7 @@ class TaskManager:
 
         # 初始化手机控制器
         try:
-            self.phone_controller = PhoneControllerRemote()
+            self.phone_controller = PhoneControllerRemote(helper_url=PHONE_HELPER_URL)
             logger.info("✅ 手机控制器初始化成功")
         except Exception as e:
             logger.error(f"❌ 手机控制器初始化失败: {e}")
