@@ -1,0 +1,13 @@
+{
+  "phones": [
+    {
+      "id": "968519c6-fcd2-4d4d-ae3c-b4f7d209f934",
+      "name": "测试手机",
+      "url": "http://192.168.110.198:8080",
+      "description": "主力手机",
+      "added_at": "2026-01-29T18:36:18.213167",
+      "is_active": true
+    }
+  ],
+  "current_id": "968519c6-fcd2-4d4d-ae3c-b4f7d209f934"
+}

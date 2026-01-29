@@ -16,10 +16,13 @@
                         <a href="/" class="text-blue-600 hover:text-blue-800">← 返回首页</a>
                         <h1 class="text-xl font-bold text-gray-900">📜 历史记录</h1>
                     </div>
-                    <button @click="loadTasks"
-                        class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                        🔄 刷新
-                    </button>
+                    <div class="flex items-center space-x-3">
+                        <a href="/phones" class="text-blue-600 hover:text-blue-800">📱 手机管理</a>
+                        <button @click="loadTasks"
+                            class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            🔄 刷新
+                        </button>
+                    </div>
                 </div>
             </div>
         </nav>

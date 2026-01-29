@@ -21,9 +21,10 @@ from io import BytesIO
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'mac-server'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'Open-AutoGLM'))
 
-from config import TASK_HISTORY_FILE, MAX_TASK_HISTORY, PHONE_HELPER_URL
+from config import TASK_HISTORY_FILE, MAX_TASK_HISTORY, PHONE_HELPER_URL, PHONE_WHITELIST_FILE
 from phone_controller_remote import PhoneControllerRemote
 from phone_adapter import PhoneControllerAdapter
+from phone_manager import PhoneManager
 
 # 导入 PhoneAgent 相关模块
 try:
@@ -143,10 +144,17 @@ class TaskManager:
         self.running = False
         self.phone_agent: Optional['PhoneAgent'] = None
 
-        # 初始化手机控制器
+        # 初始化手机管理器
+        self.phone_manager = PhoneManager(PHONE_WHITELIST_FILE)
+
+        # 初始化手机控制器（从白名单获取或使用环境变量）
         try:
-            self.phone_controller = PhoneControllerRemote(helper_url=PHONE_HELPER_URL)
-            logger.info("✅ 手机控制器初始化成功")
+            # 优先使用白名单中的激活手机
+            active_phone_url = self.phone_manager.get_active_phone_url()
+            helper_url = active_phone_url if active_phone_url else PHONE_HELPER_URL
+
+            self.phone_controller = PhoneControllerRemote(helper_url=helper_url)
+            logger.info(f"✅ 手机控制器初始化成功 ({helper_url})")
         except Exception as e:
             logger.error(f"❌ 手机控制器初始化失败: {e}")
             self.phone_controller = None
@@ -284,6 +292,47 @@ class TaskManager:
         if self.worker_thread:
             self.worker_thread.join(timeout=5)
         logger.info("任务 worker 已停止")
+
+    def switch_phone(self, phone_id: str) -> bool:
+        """
+        切换到指定手机
+
+        Args:
+            phone_id: 手机 ID
+
+        Returns:
+            是否切换成功
+        """
+        try:
+            # 检查手机是否存在
+            phone = self.phone_manager.get_phone(phone_id)
+            if not phone:
+                logger.error(f"手机不存在: {phone_id}")
+                return False
+
+            # 设置为激活状态
+            if not self.phone_manager.set_active_phone(phone_id):
+                return False
+
+            # 重新初始化手机控制器
+            phone_url = phone['url']
+            self.phone_controller = PhoneControllerRemote(helper_url=phone_url)
+            logger.info(f"✅ 已切换到手机: {phone['name']} ({phone_url})")
+
+            # 如果有 AI Agent，需要重新初始化
+            if AI_AVAILABLE:
+                try:
+                    self._init_phone_agent()
+                    logger.info("✅ PhoneAgent 已重新初始化")
+                except Exception as e:
+                    logger.error(f"⚠️ PhoneAgent 重新初始化失败: {e}")
+                    self.phone_agent = None
+
+            return True
+
+        except Exception as e:
+            logger.error(f"切换手机失败: {e}", exc_info=True)
+            return False
 
     def _worker_loop(self):
         """Worker 主循环"""

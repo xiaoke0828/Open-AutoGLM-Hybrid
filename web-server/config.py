@@ -57,6 +57,9 @@ LOG_FILE = LOG_DIR / 'app.log'
 # 任务存储配置
 TASK_HISTORY_FILE = BASE_DIR / 'web-server' / 'task_history.json'
 
+# 手机白名单配置
+PHONE_WHITELIST_FILE = BASE_DIR / 'web-server' / 'phone_whitelist.json'
+
 # 最大任务历史记录数
 MAX_TASK_HISTORY = 50
 

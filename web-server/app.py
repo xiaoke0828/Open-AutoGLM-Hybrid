@@ -60,6 +60,12 @@ def history():
     return render_template('history.html', auth_token=AUTH_TOKEN)
 
 
+@app.route('/phones')
+def phones():
+    """手机管理页"""
+    return render_template('phones.html', auth_token=AUTH_TOKEN)
+
+
 # ==================== API 路由 ====================
 
 @app.route('/api/config', methods=['GET'])
@@ -200,6 +206,119 @@ def get_current_task():
         return jsonify({'message': '当前无任务执行'}), 404
 
     return jsonify(task.to_dict())
+
+
+# ==================== 手机管理 API ====================
+
+@app.route('/api/phones', methods=['GET'])
+@require_auth
+def get_phones():
+    """获取手机列表"""
+    try:
+        phones = task_manager.phone_manager.get_phones()
+        return jsonify({
+            'success': True,
+            'phones': phones
+        })
+    except Exception as e:
+        logger.error(f"获取手机列表失败: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/phones', methods=['POST'])
+@require_auth
+def add_phone():
+    """添加新手机"""
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        url = data.get('url', '').strip()
+        description = data.get('description', '').strip()
+
+        if not name:
+            return jsonify({'error': '手机名称不能为空'}), 400
+
+        if not url:
+            return jsonify({'error': '手机 URL 不能为空'}), 400
+
+        # 添加手机
+        phone = task_manager.phone_manager.add_phone(name, url, description)
+
+        return jsonify({
+            'success': True,
+            'message': '手机添加成功',
+            'phone': phone
+        }), 201
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"添加手机失败: {e}", exc_info=True)
+        return jsonify({'error': f'添加失败: {str(e)}'}), 500
+
+
+@app.route('/api/phones/<phone_id>', methods=['DELETE'])
+@require_auth
+def delete_phone(phone_id):
+    """删除手机"""
+    try:
+        success = task_manager.phone_manager.remove_phone(phone_id)
+        if not success:
+            return jsonify({'error': '手机不存在'}), 404
+
+        return jsonify({
+            'success': True,
+            'message': '手机删除成功'
+        })
+
+    except Exception as e:
+        logger.error(f"删除手机失败: {e}", exc_info=True)
+        return jsonify({'error': f'删除失败: {str(e)}'}), 500
+
+
+@app.route('/api/phones/<phone_id>/activate', methods=['POST'])
+@require_auth
+def activate_phone(phone_id):
+    """激活（切换到）指定手机"""
+    try:
+        # 检查手机是否存在
+        phone = task_manager.phone_manager.get_phone(phone_id)
+        if not phone:
+            return jsonify({'error': '手机不存在'}), 404
+
+        # 切换手机
+        success = task_manager.switch_phone(phone_id)
+        if not success:
+            return jsonify({'error': '切换失败'}), 500
+
+        return jsonify({
+            'success': True,
+            'message': f'已切换到手机: {phone["name"]}',
+            'phone': task_manager.phone_manager.get_phone(phone_id)
+        })
+
+    except Exception as e:
+        logger.error(f"激活手机失败: {e}", exc_info=True)
+        return jsonify({'error': f'激活失败: {str(e)}'}), 500
+
+
+@app.route('/api/phones/current', methods=['GET'])
+@require_auth
+def get_current_phone():
+    """获取当前激活的手机"""
+    try:
+        phone = task_manager.phone_manager.get_active_phone()
+        if not phone:
+            return jsonify({'message': '当前无激活手机'}), 404
+
+        return jsonify({
+            'success': True,
+            'phone': phone
+        })
+
+    except Exception as e:
+        logger.error(f"获取当前手机失败: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 
 # ==================== 错误处理 ====================

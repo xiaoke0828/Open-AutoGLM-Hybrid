@@ -16,7 +16,10 @@
                         <a href="/" class="text-blue-600 hover:text-blue-800">← 返回</a>
                         <h1 class="text-xl font-bold text-gray-900">任务详情</h1>
                     </div>
-                    <span :class="getStatusBadge(task.status)" v-text="getStatusText(task.status)"></span>
+                    <div class="flex items-center space-x-4">
+                        <a href="/phones" class="text-blue-600 hover:text-blue-800">📱 手机管理</a>
+                        <span :class="getStatusBadge(task.status)" v-text="getStatusText(task.status)"></span>
+                    </div>
                 </div>
             </div>
         </nav>
