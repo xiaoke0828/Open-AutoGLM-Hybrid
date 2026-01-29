@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务详情 - AutoGLM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="min-h-screen">
+        <!-- 顶部导航 -->
+        <nav class="bg-white shadow-sm">
+            <div class="max-w-6xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <a href="/" class="text-blue-600 hover:text-blue-800">← 返回</a>
+                        <h1 class="text-xl font-bold text-gray-900">任务详情</h1>
+                    </div>
+                    <span :class="getStatusBadge(task.status)">
+                        {{ getStatusText(task.status) }}
+                    </span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-6xl mx-auto px-4 py-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 左侧：日志 -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-900">📋 执行日志</h2>
+                        <div v-if="connected" class="flex items-center text-green-600 text-sm">
+                            <span class="inline-block w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse"></span>
+                            实时连接中
+                        </div>
+                    </div>
+
+                    <!-- 任务描述 -->
+                    <div class="mb-4 p-3 bg-blue-50 rounded-lg">
+                        <p class="text-sm text-gray-700 font-medium">任务描述：</p>
+                        <p class="text-sm text-gray-900">{{ task.description }}</p>
+                    </div>
+
+                    <!-- 日志内容 -->
+                    <div
+                        ref="logContainer"
+                        class="bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-sm h-96 overflow-y-auto"
+                    >
+                        <div v-if="logs.length === 0" class="text-gray-500">
+                            等待日志输出...
+                        </div>
+                        <div v-for="(log, index) in logs" :key="index" class="mb-1">
+                            {{ log }}
+                        </div>
+                    </div>
+
+                    <!-- 任务信息 -->
+                    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">任务 ID：</span>
+                            <span class="text-gray-900 font-mono">{{ task.id.substring(0, 8) }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">创建时间：</span>
+                            <span class="text-gray-900">{{ formatFullTime(task.created_at) }}</span>
+                        </div>
+                        <div v-if="task.started_at">
+                            <span class="text-gray-500">开始时间：</span>
+                            <span class="text-gray-900">{{ formatFullTime(task.started_at) }}</span>
+                        </div>
+                        <div v-if="task.completed_at">
+                            <span class="text-gray-500">完成时间：</span>
+                            <span class="text-gray-900">{{ formatFullTime(task.completed_at) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- 错误信息 -->
+                    <div v-if="task.error" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p class="text-sm font-medium text-red-700">错误信息：</p>
+                        <p class="text-sm text-red-600 mt-1">{{ task.error }}</p>
+                    </div>
+                </div>
+
+                <!-- 右侧：截图 -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">📱 实时截图</h2>
+
+                    <!-- 截图显示 -->
+                    <div v-if="task.screenshot" class="border border-gray-200 rounded-lg overflow-hidden">
+                        <img
+                            :src="task.screenshot"
+                            alt="手机截图"
+                            class="w-full h-auto"
+                        />
+                        <div class="p-2 bg-gray-50 text-xs text-gray-500 text-center">
+                            最后更新: {{ new Date().toLocaleTimeString('zh-CN') }}
+                        </div>
+                    </div>
+
+                    <!-- 无截图 -->
+                    <div v-else class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+                        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <p class="text-gray-500">暂无截图</p>
+                        <p class="text-sm text-gray-400 mt-2">任务执行时会自动捕获手机屏幕</p>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="mt-4 flex gap-2">
+                        <button
+                            v-if="task.status === 'running'"
+                            @click="refreshTask"
+                            class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                        >
+                            🔄 刷新状态
+                        </button>
+                        <button
+                            v-if="task.status === 'completed' || task.status === 'failed'"
+                            @click="goBack"
+                            class="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition text-sm"
+                        >
+                            ← 返回首页
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    task: {{ task.to_dict() | tojson }},
+                    logs: {{ task.logs | tojson }},
+                    authToken: '{{ auth_token }}',
+                    connected: false,
+                    eventSource: null,
+                }
+            },
+            mounted() {
+                // 从本地存储获取 token
+                const savedToken = localStorage.getItem('authToken');
+                if (savedToken) {
+                    this.authToken = savedToken;
+                }
+
+                // 如果任务正在执行，建立 SSE 连接
+                if (this.task.status === 'pending' || this.task.status === 'running') {
+                    this.connectEventSource();
+                }
+
+                // 滚动到日志底部
+                this.$nextTick(() => {
+                    this.scrollToBottom();
+                });
+            },
+            beforeUnmount() {
+                // 关闭 SSE 连接
+                if (this.eventSource) {
+                    this.eventSource.close();
+                }
+            },
+            methods: {
+                // 建立 SSE 连接
+                connectEventSource() {
+                    const url = `/api/tasks/${this.task.id}/logs`;
+
+                    // 注意：EventSource 不支持自定义 header，需要通过 URL 参数传递 token
+                    // 但为了安全，我们在服务端做特殊处理，或者用 WebSocket
+                    // 这里简化处理，假设同源访问不需要额外认证
+
+                    this.eventSource = new EventSource(url);
+
+                    this.eventSource.onopen = () => {
+                        console.log('SSE 连接已建立');
+                        this.connected = true;
+                    };
+
+                    this.eventSource.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            this.handleSSEMessage(data);
+                        } catch (err) {
+                            console.error('解析 SSE 消息失败:', err);
+                        }
+                    };
+
+                    this.eventSource.onerror = (err) => {
+                        console.error('SSE 连接错误:', err);
+                        this.connected = false;
+
+                        // 任务完成后关闭连接
+                        if (this.task.status === 'completed' || this.task.status === 'failed') {
+                            this.eventSource.close();
+                        }
+                    };
+                },
+
+                // 处理 SSE 消息
+                handleSSEMessage(data) {
+                    switch (data.type) {
+                        case 'init':
+                            // 初始化任务状态
+                            this.task = data.task;
+                            this.logs = data.task.logs;
+                            break;
+
+                        case 'log':
+                            // 新日志
+                            this.logs.push(data.message);
+                            this.$nextTick(() => {
+                                this.scrollToBottom();
+                            });
+                            break;
+
+                        case 'screenshot':
+                            // 截图更新
+                            this.task.screenshot = data.data;
+                            break;
+
+                        case 'status':
+                            // 状态更新
+                            this.task.status = data.status;
+                            break;
+
+                        case 'end':
+                            // 任务结束
+                            this.task.status = data.status;
+                            this.connected = false;
+                            if (this.eventSource) {
+                                this.eventSource.close();
+                            }
+                            break;
+                    }
+                },
+
+                // 刷新任务状态
+                async refreshTask() {
+                    try {
+                        const response = await fetch(`/api/tasks/${this.task.id}`, {
+                            headers: {
+                                'Authorization': `Bearer ${this.authToken}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            this.task = await response.json();
+                            this.logs = this.task.logs;
+                            this.$nextTick(() => {
+                                this.scrollToBottom();
+                            });
+                        }
+                    } catch (err) {
+                        console.error('刷新任务失败:', err);
+                    }
+                },
+
+                // 滚动到日志底部
+                scrollToBottom() {
+                    const container = this.$refs.logContainer;
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                },
+
+                // 返回首页
+                goBack() {
+                    window.location.href = '/';
+                },
+
+                // 状态徽章样式
+                getStatusBadge(status) {
+                    const badges = {
+                        'pending': 'px-3 py-1 text-sm rounded-full bg-gray-100 text-gray-700',
+                        'running': 'px-3 py-1 text-sm rounded-full bg-blue-100 text-blue-700',
+                        'completed': 'px-3 py-1 text-sm rounded-full bg-green-100 text-green-700',
+                        'failed': 'px-3 py-1 text-sm rounded-full bg-red-100 text-red-700'
+                    };
+                    return badges[status] || badges['pending'];
+                },
+
+                // 状态文本
+                getStatusText(status) {
+                    const texts = {
+                        'pending': '⏳ 等待中',
+                        'running': '⚙️ 执行中',
+                        'completed': '✅ 已完成',
+                        'failed': '❌ 失败'
+                    };
+                    return texts[status] || status;
+                },
+
+                // 格式化完整时间
+                formatFullTime(isoString) {
+                    if (!isoString) return '-';
+                    const date = new Date(isoString);
+                    return date.toLocaleString('zh-CN');
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

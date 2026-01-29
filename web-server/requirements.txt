@@ -1,0 +1,15 @@
+# Web 服务依赖
+
+# Web 框架
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# 请求处理
+Werkzeug==3.0.1
+
+# 已有依赖（从 mac-server 继承）
+requests>=2.31.0
+Pillow>=10.0.0
+
+# 可选：如果需要更高级的日志功能
+# python-json-logger==2.0.7
