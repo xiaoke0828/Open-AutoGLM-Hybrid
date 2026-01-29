@@ -29,11 +29,18 @@ Thumbs.db
 .env.local
 .env
 .envy
+.frp-config
 
 # Runtime files
 *.pid
 task_history.json
 .auth_token
+frpc.log
+frps.log
+
+# frp binary
+frpc
+frps
 
 # macOS
 .DS_Store
